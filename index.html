@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Devra Code — Web</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1E1E1E;
+    color: #FAFAF5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  header {
+    background: #161616;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+  
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+    font-size: 16px;
+  }
+  
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #42A5F5, #0D47A1);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+  }
+  
+  .logo-text { color: #3CDCA0; }
+  
+  .actions { display: flex; gap: 8px; }
+  
+  button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.15s;
+    font-family: inherit;
+  }
+  
+  .btn-run { background: #3CDCA0; color: #111; }
+  .btn-run:hover { background: #2FB888; }
+  .btn-clear { background: #2a2a2a; color: #FAFAF5; }
+  .btn-clear:hover { background: #3a3a3a; }
+  
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  
+  .editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #2a2a2a;
+  }
+  
+  .panel-header {
+    background: #222;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #888;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+  
+  textarea {
+    flex: 1;
+    border: none;
+    padding: 14px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    background: #1E1E1E;
+    color: #FAFAF5;
+    tab-size: 4;
+  }
+  
+  .output {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #161616;
+  }
+  
+  #output {
+    flex: 1;
+    padding: 14px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 14px;
+    color: #3CDCA0;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+  
+  #output .error { color: #FF6B6B; }
+  #output .info { color: #4DD4B8; }
+  #output .result { color: #FAFAF5; }
+  
+  footer {
+    background: #161616;
+    color: #666;
+    padding: 8px 16px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+  
+  @media (max-width: 768px) {
+    main { flex-direction: column; }
+    .editor { border-right: none; border-bottom: 1px solid #2a2a2a; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">D</div>
+    <span>Devra <span class="logo-text">Code</span></span>
+  </div>
+  <div class="actions">
+    <button class="btn-clear" onclick="clearAll()">Очистить</button>
+    <button class="btn-run" onclick="runCode()">▶ Запустить</button>
+  </div>
+</header>
+
+<main>
+  <div class="editor">
+    <div class="panel-header">📝 main.dv</div>
+    <textarea id="code" spellcheck="false">let x = 10
+say(x)
+
+let name = 'Red'
+say(name)
+
+if x > 5
+    say('Больше 5')
+else
+    say('Меньше или равно 5')
+
+say(8 + 8)
+say(67 - 7 + 7)
+
+let a = 5
+let b = 3
+say(a * b + 2)</textarea>
+  </div>
+  
+  <div class="output">
+    <div class="panel-header">▶ Вывод</div>
+    <div id="output"><span class="info">Нажми «Запустить» →</span></div>
+  </div>
+</main>
+
+<footer>
+  <span>Devra Code 0.1 — Web Preview</span>
+  <span>НИИ «Кейк Баттл»</span>
+</footer>
+
+<script>
+// ============================================================
+// DEVRA CODE — WEB-ИНТЕРПРЕТАТОР (MVP)
+// ============================================================
+
+const output = document.getElementById('output');
+const codeArea = document.getElementById('code');
+
+function lexer(input) {
+  const tokens = [];
+  let i = 0;
+  const keywords = ['let', 'say', 'if', 'else', 'true', 'false'];
+
+  while (i < input.length) {
+    const ch = input[i];
+
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
+      i++;
+      continue;
+    }
+
+    if (ch === '#') {
+      while (i < input.length && input[i] !== '\n') i++;
+      continue;
+    }
+
+    if (/[0-9]/.test(ch)) {
+      let num = '';
+      while (i < input.length && /[0-9.]/.test(input[i])) {
+        num += input[i];
+        i++;
+      }
+      tokens.push({ type: 'NUMBER', value: parseFloat(num) });
+      continue;
+    }
+
+    if (ch === "'") {
+      i++;
+      let str = '';
+      while (i < input.length && input[i] !== "'") {
+        str += input[i];
+        i++;
+      }
+      i++;
+      tokens.push({ type: 'STRING', value: str });
+      continue;
+    }
+
+    if (/[a-zA-Zа-яА-Я_]/.test(ch)) {
+      let name = '';
+      while (i < input.length && /[a-zA-Zа-яА-Я0-9_]/.test(input[i])) {
+        name += input[i];
+        i++;
+      }
+      if (keywords.includes(name)) {
+        tokens.push({ type: 'KEYWORD', value: name });
+      } else {
+        tokens.push({ type: 'IDENT', value: name });
+      }
+      continue;
+    }
+
+    const two = input.substr(i, 2);
+    if (['==', '!=', '<=', '>='].includes(two)) {
+      tokens.push({ type: 'OP', value: two });
+      i += 2;
+      continue;
+    }
+
+    if ('+-*/()<>=,;'.includes(ch)) {
+      tokens.push({ type: 'OP', value: ch });
+      i++;
+      continue;
+    }
+
+    throw new Error('Неизвестный символ: "' + ch + '"');
+  }
+
+  tokens.push({ type: 'EOF', value: null });
+  return tokens;
+}
+
+function parse(tokens) {
+  let pos = 0;
+
+  function peek() { return tokens[pos]; }
+  function next() { return tokens[pos++]; }
+
+  function expect(type, value) {
+    const tok = next();
+    if (tok.type !== type || (value !== undefined && tok.value !== value)) {
+      throw new Error('Ожидалось ' + type + ' ' + value + ', получено ' + tok.type + ' ' + tok.value);
+    }
+    return tok;
+  }
+
+  function parseProgram() {
+    const stmts = [];
+    while (peek().type !== 'EOF') {
+      stmts.push(parseStatement());
+    }
+    return stmts;
+  }
+
+  function parseStatement() {
+    const tok = peek();
+
+    if (tok.type === 'KEYWORD' && tok.value === 'let') {
+      next();
+      const name = expect('IDENT').value;
+      expect('OP', '=');
+      const expr = parseExpression();
+      return { type: 'Let', name, expr };
+    }
+
+    if (tok.type === 'KEYWORD' && tok.value === 'say') {
+      next();
+      expect('OP', '(');
+      const expr = parseExpression();
+      expect('OP', ')');
+      return { type: 'Say', expr };
+    }
+
+    if (tok.type === 'KEYWORD' && tok.value === 'if') {
+      next();
+      const cond = parseExpression();
+      const then = parseStatement();
+      let elseBlock = null;
+      if (peek().type === 'KEYWORD' && peek().value === 'else') {
+        next();
+        elseBlock = parseStatement();
+      }
+      return { type: 'If', cond, then, else: elseBlock };
+    }
+
+    throw new Error('Неизвестная инструкция: ' + tok.type + ' ' + tok.value);
+  }
+
+  function parseExpression() {
+    return parseComparison();
+  }
+
+  function parseComparison() {
+    let left = parseAdditive();
+    const tok = peek();
+    if (tok.type === 'OP' && ['==', '!=', '<', '>', '<=', '>='].includes(tok.value)) {
+      const op = next().value;
+      const right = parseAdditive();
+      return { type: 'BinOp', op, left, right };
+    }
+    return left;
+  }
+
+  function parseAdditive() {
+    let left = parseMultiplicative();
+    while (peek().type === 'OP' && ['+', '-'].includes(peek().value)) {
+      const op = next().value;
+      const right = parseMultiplicative();
+      left = { type: 'BinOp', op, left, right };
+    }
+    return left;
+  }
+
+  function parseMultiplicative() {
+    let left = parsePrimary();
+    while (peek().type === 'OP' && ['*', '/'].includes(peek().value)) {
+      const op = next().value;
+      const right = parsePrimary();
+      left = { type: 'BinOp', op, left, right };
+    }
+    return left;
+  }
+
+  function parsePrimary() {
+    const tok = peek();
+    if (tok.type === 'NUMBER') {
+      next();
+      return { type: 'Number', value: tok.value };
+    }
+    if (tok.type === 'STRING') {
+      next();
+      return { type: 'String', value: tok.value };
+    }
+    if (tok.type === 'IDENT') {
+      next();
+      return { type: 'Var', name: tok.value };
+    }
+    if (tok.type === 'KEYWORD' && (tok.value === 'true' || tok.value === 'false')) {
+      next();
+      return { type: 'Bool', value: tok.value === 'true' };
+    }
+    if (tok.type === 'OP' && tok.value === '(') {
+      next();
+      const expr = parseExpression();
+      expect('OP', ')');
+      return expr;
+    }
+    throw new Error('Неожиданный токен: ' + tok.type + ' ' + tok.value);
+  }
+
+  return parseProgram();
+}
+
+function interpret(ast) {
+  const env = new Map();
+  const results = [];
+
+  function evalExpr(node) {
+    switch (node.type) {
+      case 'Number': return node.value;
+      case 'String': return node.value;
+      case 'Bool': return node.value;
+      case 'Var': {
+        if (!env.has(node.name)) {
+          throw new Error('Переменная "' + node.name + '" не определена');
+        }
+        return env.get(node.name);
+      }
+      case 'BinOp': {
+        const l = evalExpr(node.left);
+        const r = evalExpr(node.right);
+        switch (node.op) {
+          case '+':
+            if (typeof l === 'string' || typeof r === 'string') {
+              return String(l) + String(r);
+            }
+            return l + r;
+          case '-': return l - r;
+          case '*': return l * r;
+          case '/': return l / r;
+          case '==': return l === r;
+          case '!=': return l !== r;
+          case '<': return l < r;
+          case '>': return l > r;
+          case '<=': return l <= r;
+          case '>=': return l >= r;
+          default: throw new Error('Неизвестный оператор: ' + node.op);
+        }
+      }
+      default: throw new Error('Неизвестное выражение: ' + node.type);
+    }
+  }
+
+  function execStmt(stmt) {
+    switch (stmt.type) {
+      case 'Let': {
+        const val = evalExpr(stmt.expr);
+        env.set(stmt.name, val);
+        break;
+      }
+      case 'Say': {
+        const val = evalExpr(stmt.expr);
+        results.push(String(val));
+        break;
+      }
+      case 'If': {
+        const cond = evalExpr(stmt.cond);
+        if (cond) {
+          execStmt(stmt.then);
+        } else if (stmt.else) {
+          execStmt(stmt.else);
+        }
+        break;
+      }
+      default: throw new Error('Неизвестная инструкция: ' + stmt.type);
+    }
+  }
+
+  for (const stmt of ast) {
+    execStmt(stmt);
+  }
+  return results;
+}
+
+function runCode() {
+  const code = codeArea.value;
+  output.innerHTML = '';
+
+  try {
+    const tokens = lexer(code);
+    const ast = parse(tokens);
+    const results = interpret(ast);
+    if (results.length === 0) {
+      output.innerHTML = '<span class="info">(нет вывода)</span>';
+    } else {
+      output.innerHTML = results.map(r => '<span class="result">' + escapeHtml(r) + '</span>').join('\n');
+    }
+  } catch (e) {
+    output.innerHTML = '<span class="error">Ошибка: ' + escapeHtml(e.message) + '</span>';
+  }
+}
+
+function clearAll() {
+  codeArea.value = '';
+  output.innerHTML = '<span class="info">Очищено.</span>';
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+window.onload = () => setTimeout(runCode, 100);
+</script>
+
+</body>
+</html>
